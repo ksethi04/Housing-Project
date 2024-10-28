@@ -1,0 +1,63 @@
+---
+title: "Housing_project-DANA-4810"
+author: "Khushank Sethi (100423378)"
+date: "2024-10-25"
+output: pdf_document
+---
+```{r}
+housing <- read.csv("House_listing.csv")
+attach(housing)
+head(housing)
+```
+
+
+```{r}
+print("missing values:")
+for(col in unique(names(housing))) {
+  cat(col, ":", length(housing[is.na(housing[[col]])]), "\n")
+}
+```
+
+
+```{r}
+library(dplyr)
+length(housing$Latitude[!between(Latitude, 42, 83)])
+length(housing$Longitude[!between(housing$Longitude, -141, -52)])
+housing$Longitude[housing$Longitude == 63.1005] <- -63.1005
+length(housing$Longitude[!between(housing$Longitude, -141, -52)])
+write.csv(housing, file = "cleaned_housing.csv")
+
+```
+
+
+```{r}
+housing$Price <- as.numeric(gsub(",", "", housing$Price))
+num_cols <- housing[sapply(housing, is.numeric)]
+for(col in names(num_cols)) {
+  boxplot(housing[col], main=col)
+  cat(col, "outliers:")
+  print(unique(boxplot.stats(housing[[col]])$out))
+}
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
