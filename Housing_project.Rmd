@@ -7,46 +7,100 @@ output: pdf_document
 ```{r}
 housing <- read.csv("House_listing.csv")
 attach(housing)
-head(housing)
+cat("total number of records:", nrow(housing))
 ```
 
 
 ```{r}
-print("missing values:")
 for(col in unique(names(housing))) {
-  cat(col, ":", length(housing[is.na(housing[[col]])]), "\n")
+  cat("Missing values of", col, ":", length(housing[is.na(housing[[col]])]), "\n")
 }
 ```
 
 
 ```{r}
 library(dplyr)
-length(housing$Latitude[!between(Latitude, 42, 83)])
-length(housing$Longitude[!between(housing$Longitude, -141, -52)])
+cat("Out of range values of Latitude", length(housing$Latitude[!between(Latitude, 42, 83)]), "\n")
+cat("Out of range values of Longitude", length(housing$Longitude[!between(housing$Longitude, -141, -52)]), "\n")
 housing$Longitude[housing$Longitude == 63.1005] <- -63.1005
-length(housing$Longitude[!between(housing$Longitude, -141, -52)])
-write.csv(housing, file = "cleaned_housing.csv")
+cat("Out of range values of Latitude after cleaning", length(housing$Longitude[!between(housing$Longitude, -141, -52)]), "\n")
 
+housing$Price <- as.numeric(gsub(",", "", Price))
+summary(housing)
 ```
 
+```{r}
+write.csv(housing, file = "cleaned_housing.csv")
+```
 
 ```{r}
-housing$Price <- as.numeric(gsub(",", "", housing$Price))
-num_cols <- housing[sapply(housing, is.numeric)]
-for(col in names(num_cols)) {
-  boxplot(housing[col], main=col)
+bcHousing <- housing[housing$Province == "British Columbia",]
+bcHousing_numCols <-  bcHousing[sapply(bcHousing, is.numeric)]
+for(col in names(bcHousing_numCols)) {
+  boxplot(bcHousing_numCols[[col]], main=col)
   cat(col, "outliers:")
-  print(unique(boxplot.stats(housing[[col]])$out))
+  print(length(boxplot.stats(bcHousing_numCols[[col]])$out))
 }
 ```
 
 
+* method to remove outliers until it is 0
+*remove_outliers <- function(data, col){
+* len_outlier <- length(boxplot.stats(data[[col]])$out)
+*  if(len_outlier > 0){
+*    data <- data %>% filter(!data[[col]] %in% boxplot.stats(data[[col]])$out)
+*    remove_outliers(data, col)
+*  }
+*  else{
+*    return(data)
+*  }
+*}
+
+```{r}
+for(col in unique(names(bcHousing_numCols))){
+  bcHousing_numCols <- bcHousing_numCols %>% filter(!bcHousing_numCols[[col]] %in% boxplot.stats(bcHousing_numCols[[col]])$out)
+    #remove_outliers(bcHousing_numCols, col)
+  cat(col, "outliers:", length(boxplot.stats(bcHousing_numCols[[col]])$out), "\n")
+}
+```
 
 
+```{r}
+library(ggcorrplot)
+
+cor_matrix <- cor(bcHousing_numCols)
+ggcorrplot(cor_matrix, lab = TRUE, type = "upper")
+```
 
 
+```{r}
+full_model <- lm(Price ~ ., data = bcHousing_numCols)
+summary(full_model)
+```
 
+```{r}
+simple_model <- lm(Price ~ 1, data = bcHousing_numCols)
+summary(simple_model)
+```
 
+```{r}
+both_select <- step(full_model, direction = "both")
+summary(both_select)
+```
+
+```{r}
+model <- lm(formula = Price ~ Number_Beds + Number_Baths + Population + 
+    Latitude + Longitude, data = bcHousing_numCols)
+
+library(MASS)
+boxncox <- boxcox(model)
+optimal <- boxncox$x[which.max(boxncox$y)]
+optimal
+bcHousing_numCols$new_Price <- (bcHousing_numCols$Price^optimal)/optimal 
+new_model <- lm(new_Price ~ Number_Baths + Longitude + Latitude  + Population + 
+   Number_Beds, data = bcHousing_numCols)
+summary(new_model)
+```
 
 
 
